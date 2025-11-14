@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Arch_0 Interpreter</title>
+<style>
+body { background:#0c0c0c; color:#00ffcc; font-family:Consolas; padding:20px; }
+textarea { width:100%; height:260px; background:#111; color:#0f0; border:2px solid #00ffcc; padding:10px; font-size:15px; }
+#output { white-space:pre-wrap; background:#111; color:#0ff; padding:10px; border:2px solid #00ffaa; margin-top:15px; height:200px; overflow-y:auto; }
+button { background:#00ffcc; color:#000; border:none; padding:12px 25px; cursor:pointer; margin-top:8px; font-weight:bold; }
+</style>
+</head>
+<body>
+
+<h1>Arch_0 Web Interpreter + Arithmetic</h1>
+
+<textarea id="code" placeholder="Write Arch_0 code here..."></textarea>
+<br>
+<button onclick="runArch0()">RUN</button>
+
+<div id="output"></div>
+
+<script>
+let registers = {x0:0,x1:0,x2:0,x3:0,x4:0,x5:0,x6:0,x7:0,x8:0,x9:0};
+let UFM = false; // user friendly mode
+let ECMD = false; // extended command mode
+
+function printOut(text){document.getElementById("output").innerText += text;}
+function clearOut(){document.getElementById("output").innerText = "";}
+
+function parseValue(token){
+    token = token.trim();
+    if(/^x[0-9]$/.test(token)) return registers[token] || 0;
+    return Number(token) || 0;
+}
+
+function runArch0(){
+    clearOut();
+    let code=document.getElementById("code").value.split("\n");
+    UFM=false; ECMD=false;
+
+    for(let line of code){
+        line=line.trim();
+        if(line===""||line.startsWith("//")) continue;
+
+        // MODE SWITCHING
+        if(line==="arch-ufm"){UFM=true; continue;}
+        if(line==="arch-ecmd"){ECMD=true; continue;}
+
+        // ECMD extended commands
+        if(ECMD){
+            let e=line.match(/x9\s+x0,\s*\$(.+)/);
+            if(e){
+                let cmd=e[1];
+                if(cmd==="cls"){clearOut(); continue;}
+                if(cmd==="nl"){printOut("\n"); continue;}
+                if(cmd==="tab"){printOut("\t"); continue;}
+                printOut(`[ECMD ERR] Unknown: ${cmd}\n`);
+                continue;
+            }
+        }
+
+        // UFM print
+        if(UFM){
+            let uf=line.match(/x8\s+x1,\s*\$(.+)/);
+            if(uf){printOut(uf[1]); continue;}
+        }
+
+        // CLASSIC single char print
+        let printMatch=line.match(/x8\s+x0,\s*\$(.)/);
+        if(printMatch){printOut(printMatch[1]); continue;}
+
+        // MOV simple
+        let movMatch=line.match(/(x[0-9])\s+(-?\d+)/);
+        if(movMatch){registers[movMatch[1]]=parseInt(movMatch[2]); continue;}
+
+        // ADD: x8 x1, a_, b_
+        let addMatch=line.match(/x8\s+x1,\s*(.+)_(.+)/);
+        if(addMatch){registers.x0=parseValue(addMatch[1])+parseValue(addMatch[2]); printOut(registers.x0+"\n"); continue;}
+
+        // SUB: x8 x2, a_, b_
+        let subMatch=line.match(/x8\s+x2,\s*(.+)_(.+)/);
+        if(subMatch){registers.x0=parseValue(subMatch[1])-parseValue(subMatch[2]); printOut(registers.x0+"\n"); continue;}
+
+        // MUL: x8 x3, a_, b_
+        let mulMatch=line.match(/x8\s+x3,\s*(.+)_(.+)/);
+        if(mulMatch){registers.x0=parseValue(mulMatch[1])*parseValue(mulMatch[2]); printOut(registers.x0+"\n"); continue;}
+
+        // MOD: x8 x4, a_, b_
+        let modMatch=line.match(/x8\s+x4,\s*(.+)_(.+)/);
+        if(modMatch){registers.x0=parseValue(modMatch[1])%parseValue(modMatch[2]); printOut(registers.x0+"\n"); continue;}
+
+        printOut(`[ERR] Unknown instruction: ${line}\n`);
+    }
+}
+</script>
+
+</body>
+</html>
